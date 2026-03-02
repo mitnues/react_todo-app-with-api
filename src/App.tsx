@@ -33,7 +33,7 @@ export const App: React.FC = () => {
         //console.error('Error loading todos:', err);
         setError('Unable to load todos');
       } finally {
-        setIsLoading(false);
+        setIsLoading(false);//teste de caracter 
       }
     };
 
