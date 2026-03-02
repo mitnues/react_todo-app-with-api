@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react';
-// import { UserWarning } from './UserWarning';
 import { getTodos, USER_ID } from './api/todosApi';
 
 import {
@@ -13,7 +12,6 @@ import { Todo } from './types/Todo';
 import { createTodo, deleteTodo, updateTodo } from './api/todosApi';
 
 export const App: React.FC = () => {
-  // No user state, use fixed id
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,16 +22,7 @@ export const App: React.FC = () => {
   const [isAddingTodo, setIsAddingTodo] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // No user to load
-
-  // // Load todos on mount
-  // useEffect(() => {
-  //   setIsLoading(false);
-  //   setTodos([]); // Start with an empty list
-  // }, []);
-
   useEffect(() => {
-    // Define an internal async function to handle the promise
     const loadData = async () => {
       try {
         setIsLoading(true);
@@ -41,8 +30,8 @@ export const App: React.FC = () => {
 
         setTodos(data);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Error loading todos:', err);
+        //console.error('Error loading todos:', err);
+        setError('Unable to load todos');
       } finally {
         setIsLoading(false);
       }
@@ -51,14 +40,12 @@ export const App: React.FC = () => {
     loadData();
   }, []);
 
-  // Focus input after adding a todo
   useEffect(() => {
     if (!isAddingTodo && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isAddingTodo]);
 
-  // Auto-hide error after 3 seconds
   useEffect(() => {
     if (!error) {
       return;
@@ -69,7 +56,28 @@ export const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [error]);
 
-  // No login, always show todos
+  const handleUpdateTodo = async (updatedTodo: Todo) => {
+    setError(null);
+    setProcessingIds(prev => [...prev, updatedTodo.id]);
+
+    try {
+      const serverTodo = await updateTodo(updatedTodo.id, {
+        title: updatedTodo.title,
+        completed: updatedTodo.completed,
+      });
+
+      setTodos(currentTodos =>
+        currentTodos.map(todo =>
+          todo.id === serverTodo.id ? serverTodo : todo,
+        ),
+      );
+    } catch (err) {
+      setError('Unable to update a todo');
+      throw err;
+    } finally {
+      setProcessingIds(prev => prev.filter(id => id !== updatedTodo.id));
+    }
+  };
 
   const visibleTodos = todos.filter(todo => {
     if (filter === 'active') {
@@ -83,15 +91,12 @@ export const App: React.FC = () => {
     return true;
   });
 
-  // Only show tempTodo if it matches current filter
   const isActive = tempTodo && filter === 'active' && !tempTodo.completed;
   const isCompleted = tempTodo && filter === 'completed' && tempTodo.completed;
-
   const visibleTempTodo =
     tempTodo && (filter === 'all' || isActive || isCompleted) ? tempTodo : null;
 
   const completedCount = todos.filter(todo => todo.completed).length;
-  // Não considerar tempTodo no contador enquanto está pendente
   const activeCount = todos.filter(todo => !todo.completed).length;
 
   const handleAddTodo = async (title: string) => {
@@ -105,24 +110,12 @@ export const App: React.FC = () => {
 
     setError(null);
     setIsAddingTodo(true);
+    const newTodoData = { title: trimmedTitle, completed: false };
 
-    const newTodoData = {
-      title: trimmedTitle,
-      completed: false,
-    };
-
-    // Create temp todo
-    setTempTodo({
-      id: 0,
-      userId: USER_ID,
-      ...newTodoData,
-    });
-
-    // Não limpar o input enquanto está aguardando resposta
+    setTempTodo({ id: 0, userId: USER_ID, ...newTodoData });
 
     try {
       const createdTodo = await createTodo(newTodoData);
-      // If API returns no id or duplicate id, generate a unique one
       let uniqueId = createdTodo.id;
 
       if (!uniqueId || todos.some(t => t.id === uniqueId)) {
@@ -130,14 +123,9 @@ export const App: React.FC = () => {
       }
 
       setTodos([...todos, { ...createdTodo, id: uniqueId }]);
-      setNewTodoTitle(''); // Limpa só após sucesso
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || 'Unable to add a todo');
-      } else {
-        setError('Unable to add a todo');
-      }
-      // Não limpar o input em caso de erro
+      setNewTodoTitle('');
+    } catch {
+      setError('Unable to add a todo');
     } finally {
       setTempTodo(null);
       setIsAddingTodo(false);
@@ -147,7 +135,6 @@ export const App: React.FC = () => {
   const handleDeleteTodo = async (id: number) => {
     setError(null);
     setProcessingIds(prev => [...prev, id]);
-
     try {
       await deleteTodo(id);
       setTodos(prev => prev.filter(t => t.id !== id));
@@ -155,52 +142,7 @@ export const App: React.FC = () => {
       setError('Unable to delete a todo');
     } finally {
       setProcessingIds(prev => prev.filter(processId => processId !== id));
-
-      // Focus input after response
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-    }
-  };
-
-  const handleToggleTodo = async (id: number) => {
-    setError(null);
-    setProcessingIds(prev => [...prev, id]);
-
-    // Optimistic update using previous state
-    let newCompletedValue: boolean | null = null;
-
-    setTodos(prev => {
-      const updated = prev.map(t => {
-        if (t.id === id) {
-          newCompletedValue = !t.completed;
-
-          return { ...t, completed: !t.completed };
-        }
-
-        return t;
-      });
-
-      return updated;
-    });
-
-    try {
-      const newCompleted = newCompletedValue ?? true;
-
-      await updateTodo(id, { completed: newCompleted });
-    } catch {
-      setError('Unable to update a todo');
-
-      // Revert optimistic update
-      setTodos(prev =>
-        prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t)),
-      );
-    } finally {
-      setProcessingIds(prev => prev.filter(processId => processId !== id));
-
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      inputRef.current?.focus();
     }
   };
 
@@ -209,41 +151,20 @@ export const App: React.FC = () => {
 
     setError(null);
     if (completedTodos.length === 0) {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-
       return;
     }
 
     setProcessingIds(prev => [...prev, ...completedTodos.map(t => t.id)]);
     try {
-      const results = await Promise.all(
-        completedTodos.map(todo =>
-          deleteTodo(todo.id)
-            .then(() => ({ id: todo.id, success: true }))
-            .catch(() => ({ id: todo.id, success: false })),
-        ),
-      );
-      const failed = results.filter(r => !r.success).map(r => r.id);
-      const succeeded = results.filter(r => r.success).map(r => r.id);
-
-      if (succeeded.length > 0) {
-        setTodos(prev => prev.filter(t => !succeeded.includes(t.id)));
-      }
-
-      if (failed.length > 0) {
-        setError('Unable to delete a todo');
-      }
+      await Promise.all(completedTodos.map(todo => deleteTodo(todo.id)));
+      setTodos(prev => prev.filter(t => !t.completed));
     } catch {
       setError('Unable to delete a todo');
     } finally {
       setProcessingIds(prev =>
         prev.filter(id => !completedTodos.some(t => t.id === id)),
       );
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      inputRef.current?.focus();
     }
   };
 
@@ -267,7 +188,14 @@ export const App: React.FC = () => {
             tempTodo={visibleTempTodo}
             processingIds={processingIds}
             onDeleteTodo={handleDeleteTodo}
-            onToggleTodo={handleToggleTodo}
+            onToggleTodo={id => {
+              const todo = todos.find(t => t.id === id);
+
+              if (todo) {
+                handleUpdateTodo({ ...todo, completed: !todo.completed });
+              }
+            }}
+            onUpdateTodo={handleUpdateTodo}
           />
 
           {todos.length > 0 && (

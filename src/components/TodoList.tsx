@@ -8,6 +8,8 @@ interface Props {
   processingIds: number[];
   onDeleteTodo: (id: number) => void;
   onToggleTodo: (id: number) => void;
+  // Nova prop necessária para a renomeação (Rename)
+  onUpdateTodo: (todo: Todo) => Promise<void>;
 }
 
 export const TodoList: React.FC<Props> = ({
@@ -16,6 +18,7 @@ export const TodoList: React.FC<Props> = ({
   processingIds,
   onDeleteTodo,
   onToggleTodo,
+  onUpdateTodo, // Recebendo a nova função
 }) => {
   return (
     <section className="todoapp__main" data-cy="TodoList">
@@ -26,6 +29,8 @@ export const TodoList: React.FC<Props> = ({
           todo={todo}
           onDelete={() => onDeleteTodo(todo.id)}
           onToggle={() => onToggleTodo(todo.id)}
+          // Passando a função de atualização para cada item
+          onUpdate={onUpdateTodo}
         />
       ))}
 
@@ -35,6 +40,8 @@ export const TodoList: React.FC<Props> = ({
           todo={tempTodo}
           onDelete={() => {}}
           onToggle={() => {}}
+          // O item temporário não precisa de função de update real
+          onUpdate={async () => {}}
         />
       )}
     </section>
