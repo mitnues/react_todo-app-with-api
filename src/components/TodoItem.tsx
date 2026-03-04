@@ -92,7 +92,7 @@ export const TodoItem: React.FC<Props> = ({
             e.preventDefault();
             handleSubmit();
           }}
-          onBlur={handleSubmit}
+          
           style={{ flexGrow: 1 }} // Garante que o input ocupe o espaço do texto
         >
           <input
@@ -101,6 +101,7 @@ export const TodoItem: React.FC<Props> = ({
             className="todo__title-field"
             value={newTitle}
             onChange={e => setNewTitle(e.target.value)}
+            onBlur={handleSubmit}
             onKeyUp={handleKeyUp}
             ref={editFieldRef}
           />
