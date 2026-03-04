@@ -92,7 +92,6 @@ export const TodoItem: React.FC<Props> = ({
             e.preventDefault();
             handleSubmit();
           }}
-          
           style={{ flexGrow: 1 }} // Garante que o input ocupe o espaço do texto
         >
           <input
